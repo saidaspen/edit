@@ -13,7 +13,7 @@ pub struct Position {
 }
 
 pub struct Editor {
-    shoud_quit: bool,
+    should_quit: bool,
     terminal: Terminal,
     document: Document,
     cursor_position: Position,
@@ -31,7 +31,7 @@ impl Editor {
             if let Err(error) = self.refresh_screen() {
                 die(error);
             }
-            if self.shoud_quit {
+            if self.should_quit {
                 break;
             }
             if let Err(error) = self.process_keypress() {
@@ -50,7 +50,7 @@ impl Editor {
         };
 
         Self {
-            shoud_quit: false,
+            should_quit: false,
             terminal: Terminal::default().expect("Failed to initialize terminal"),
             document: document,
             cursor_position: Position::default(),
@@ -61,7 +61,7 @@ impl Editor {
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
         Terminal::cursor_hide();
         Terminal::cursor_position(&Position::default()); 
-        if self.shoud_quit {
+        if self.should_quit {
             Terminal::clear_screen();
             println!("Goodbye.\r");
         } else {
@@ -78,7 +78,7 @@ impl Editor {
     fn process_keypress(&mut self) -> Result<(), std::io::Error> {
         let pressed_key = Terminal::read_key()?;
         match pressed_key {
-            Key::Ctrl('q') => self.shoud_quit = true,
+            Key::Ctrl('q') => self.should_quit = true,
             Key::Up
             | Key::Down
             | Key::Left
@@ -110,7 +110,7 @@ impl Editor {
     }
     fn move_cursor(&mut self, key: Key) {
         let Position { mut x, mut y } = self.cursor_position;
-        let size = self.terminal.size();
+        let terminal_height = self.terminal.size().height as usize;
         let height = self.document.len();
         let mut width = if let Some(row) = self.document.row(y){
             row.len()
@@ -130,8 +130,20 @@ impl Editor {
                     x = x.saturating_add(1);
                 }
             }
-            Key::PageUp => y = 0,
-            Key::PageDown => y = height,
+            Key::PageUp  => {
+                y = if y > terminal_height {
+                    y - terminal_height
+                } else {
+                    0
+                }
+            }
+            Key::PageDown => {
+                y = if y.saturating_add(terminal_height) < height {
+                    y + terminal_height as usize
+                } else {
+                    height
+                }
+            }
             Key::Home => x = 0,
             Key::End => x = width,
             _ => (),
